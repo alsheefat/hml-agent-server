@@ -31,6 +31,8 @@ REQUEST_TIMEOUT = 12
 
 
 def call_gemini(message):
+    if not GEMINI_API_KEY:
+        return None, "no API key configured"
     try:
         response = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}",
@@ -42,15 +44,15 @@ def call_gemini(message):
             timeout=REQUEST_TIMEOUT
         )
         if response.status_code == 200:
-            return response.json()["candidates"][0]["content"]["parts"][0]["text"]
-        print(f"[GEMINI] HTTP {response.status_code} {response.text[:200]}")
-        return None
+            return response.json()["candidates"][0]["content"]["parts"][0]["text"], None
+        return None, f"HTTP {response.status_code}: {response.text[:300]}"
     except Exception as e:
-        print("[GEMINI ERROR]", e)
-        return None
+        return None, f"exception: {e}"
 
 
 def _call_openai_compatible(url, api_key, model, message):
+    if not api_key:
+        return None, "no API key configured"
     try:
         response = requests.post(
             url,
@@ -68,12 +70,10 @@ def _call_openai_compatible(url, api_key, model, message):
             timeout=REQUEST_TIMEOUT
         )
         if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        print(f"[{url}] HTTP {response.status_code} {response.text[:200]}")
-        return None
+            return response.json()["choices"][0]["message"]["content"], None
+        return None, f"HTTP {response.status_code}: {response.text[:300]}"
     except Exception as e:
-        print(f"[{url} ERROR]", e)
-        return None
+        return None, f"exception: {e}"
 
 
 def call_groq(message):
@@ -147,21 +147,29 @@ def chat():
     if len(message) > 4000:
         message = message[:4000]
 
+    failures = {}
+
     for name, engine in ENGINE_CHAIN:
         started = time.perf_counter()
-        raw_answer = engine(message)
+        raw_answer, error_detail = engine(message)
         elapsed = time.perf_counter() - started
 
         answer = clean_answer(raw_answer)
         if answer:
-            print(f"[SUCCESS] {name} {elapsed:.2f}s")
             return jsonify({
                 "answer": answer,
                 "engine": "HML Agent",
                 "time": round(elapsed, 2)
             })
 
-    return jsonify({"error": "All engines failed. Please try again shortly."}), 503
+        failures[name] = error_detail or "no answer returned"
+
+    # Every engine failed — return WHY for each one, so this is debuggable
+    # from the response itself without needing to dig through server logs.
+    return jsonify({
+        "error": "All engines failed. Please try again shortly.",
+        "details": failures
+    }), 503
 
 
 if __name__ == "__main__":
