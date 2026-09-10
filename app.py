@@ -35,7 +35,7 @@ def call_gemini(message):
         return None, "no API key configured"
     try:
         response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
             headers={"Content-Type": "application/json"},
             json={
                 "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -79,7 +79,7 @@ def _call_openai_compatible(url, api_key, model, message):
 def call_groq(message):
     return _call_openai_compatible(
         "https://api.groq.com/openai/v1/chat/completions",
-        GROQ_API_KEY, "llama-3.3-70b-versatile", message
+        GROQ_API_KEY, "openai/gpt-oss-120b", message
     )
 
 
@@ -93,14 +93,14 @@ def call_mistral(message):
 def call_cerebras(message):
     return _call_openai_compatible(
         "https://api.cerebras.ai/v1/chat/completions",
-        CEREBRAS_API_KEY, "llama-3.3-70b", message
+        CEREBRAS_API_KEY, "gpt-oss-120b", message
     )
 
 
 def call_kimi(message):
     return _call_openai_compatible(
         "https://api.moonshot.ai/v1/chat/completions",
-        MOONSHOT_API_KEY, "moonshot-v1-8k", message
+        MOONSHOT_API_KEY, "kimi-k2.6", message
     )
 
 
@@ -124,7 +124,7 @@ def clean_answer(text):
         return None
     # Strip any leaked provider name so the agent always presents as
     # HML Agent, regardless of which underlying engine answered.
-    provider_names = ["Gemini", "Google", "Groq", "Mistral", "Cerebras", "Kimi", "Moonshot"]
+    provider_names = ["Gemini", "Google", "Groq", "Mistral", "Cerebras", "Kimi", "Moonshot", "GPT-OSS", "GPT OSS", "OpenAI", "GPT"]
     for name in sorted(provider_names, key=len, reverse=True):
         text = re.sub(re.escape(name), "HML Agent", text, flags=re.IGNORECASE)
     return text
